@@ -10,6 +10,9 @@ import (
 	"gopkg.in/DATA-DOG/go-sqlmock.v1"
 )
 
+const GETSTATEMENT = "Select * From users Where id=?"
+const INSERTSTATEMENT = "insert into users(id, firstname, lastname) values(?,?,?)"
+
 func TestMySQLStore_GetByID(t *testing.T) {
 	//create a new sql mock
 	db, mock, err := sqlmock.New()
@@ -38,7 +41,10 @@ func TestMySQLStore_GetByID(t *testing.T) {
 
 	// Expecting a successful "query"
 	// This tells our db to expect this query (id) as well as supply a certain response (row)
-	mock.ExpectQuery("Select * From users Where id=?").
+	// REMINDER: Since sqlmock requires a regex string, in order for `?` to be interpreted, you'll
+	// have to wrap it within a `regexp.QuoteMeta`. Be mindful that you will need to do this EVERY TIME you're
+	// using any reserved metacharacters in regex.
+	mock.ExpectQuery(regexp.QuoteMeta("Select * From users Where id=?")).
 		WithArgs(expectedUser.ID).WillReturnRows(row)
 
 	// Since we know our query is successful, we want to test whether there happens to be
@@ -57,7 +63,8 @@ func TestMySQLStore_GetByID(t *testing.T) {
 	// Expecting a unsuccessful "query"
 	// Attempting to search by an id that doesn't exist. This would result in a
 	// sql.ErrNoRows error
-	mock.ExpectQuery(regexp.QuoteMeta("Select * From users Where id=?")).
+	// REMINDER: Using a constant makes your code much clear, and is highly recommended.
+	mock.ExpectQuery(regexp.QuoteMeta(GETSTATEMENT)).
 		WithArgs(-1).WillReturnError(sql.ErrNoRows)
 
 	// Since we are expecting an error here, we create a condition opposing that to see
@@ -103,7 +110,7 @@ func TestMySQLStore_Insert(t *testing.T) {
 
 	// This tells our db to expect an insert query with certain arguments with a certain
 	// return result
-	mock.ExpectExec("insert into users(id, firstname, lastname) values(?,?,?)").
+	mock.ExpectExec(regexp.QuoteMeta(INSERTSTATEMENT)).
 		WithArgs(inputUser.ID, inputUser.FirstName, inputUser.LastName).
 		WillReturnResult(sqlmock.NewResult(2, 1))
 
@@ -120,12 +127,12 @@ func TestMySQLStore_Insert(t *testing.T) {
 	// Inserting an invalid user
 	invalidUser := &User{
 		-1,
-		nil,
+		"Jane",
 		"Doe",
 	}
 	insertErr := fmt.Errorf("Error executing INSERT operation")
 	mock.ExpectExec("insert into users(id, firstname, lastname) values(?,?,?)").
-		WithArgs(invalidUser.ID, invalidUser.FirstName, invalidUser.LastName).
+		WithArgs(invalidUser.ID, nil, invalidUser.LastName).
 		WillReturnError(insertErr)
 
 	if 	_, err = store.Insert(invalidUser); err == nil {

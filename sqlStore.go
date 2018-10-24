@@ -42,6 +42,8 @@ func NewMySQLStore(db *sql.DB) *MySQLStore {
 func (s *MySQLStore) GetByID(id int64) (*User, error) {
 	// Process request and return correct output
 
+
+
 	return nil, nil
 }
 
